@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id           String             @id @default(auto()) @map("_id") @db.ObjectId
+  fullName     String
+  age          Int
+  gender       String
+  status       PlayerStatus
+  availability AvailabilityStatus
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  login        String             @unique
+  password     String
+  isAdmin      Boolean            @default(false)
+
+  // Отношения
+  gamesAsPlayer1 Game[]        @relation("Player1Games")
+  gamesAsPlayer2 Game[]        @relation("Player2Games")
+  gamesWinner    Game[]        @relation("GameWinner")
+  chatMessages   ChatMessage[] @relation("PlayerMessages")
+  ratings        Rating[]
+}
+
+enum PlayerStatus {
+  ACTIVE
+  BLOCKED
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  IN_GAME
+}
+
+model Game {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  player1       Player   @relation("Player1Games", fields: [player1Id], references: [id])
+  player1Id     String   @db.ObjectId
+  player2       Player   @relation("Player2Games", fields: [player2Id], references: [id])
+  player2Id     String   @db.ObjectId
+  winner        Player?  @relation("GameWinner", fields: [winnerId], references: [id])
+  winnerId      String?  @db.ObjectId
+  lastMoveTime  DateTime @default(now())
+  // Символы игроков (X или O)
+  player1Symbol Symbol
+  player2Symbol Symbol
+
+  // Статус игры
+  status GameStatus
+
+  // Игровое поле (хранится как JSON)
+  board        Json
+  nowMove      Symbol
+  // Чат-сообщения
+  chatMessages ChatMessage[]
+  createTime   DateTime      @default(now())
+  endTime      DateTime?
+}
+
+enum GameStatus {
+  ONGOING
+  FINISHED
+  DRAW
+}
+
+enum Symbol {
+  X
+  O
+}
+
+model ChatMessage {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  game      Game     @relation(fields: [gameId], references: [id])
+  gameId    String   @db.ObjectId
+  sender    Player   @relation("PlayerMessages", fields: [senderId], references: [id])
+  senderId  String   @db.ObjectId
+  message   String
+  timestamp DateTime @default(now())
+}
+
+model Rating {
+  id         String @id @default(auto()) @map("_id") @db.ObjectId
+  player     Player @relation(fields: [playerId], references: [id])
+  playerId   String @db.ObjectId
+  totalGames Int
+  wins       Int
+  losses     Int
+}
