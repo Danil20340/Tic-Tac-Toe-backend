@@ -12,8 +12,8 @@ model Player {
   fullName     String
   age          Int
   gender       String
-  status       PlayerStatus
-  availability AvailabilityStatus
+  status       PlayerStatus       @default(ACTIVE)
+  availability AvailabilityStatus @default(AVAILABLE)
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
   login        String             @unique
@@ -88,7 +88,7 @@ model Rating {
   id         String @id @default(auto()) @map("_id") @db.ObjectId
   player     Player @relation(fields: [playerId], references: [id])
   playerId   String @db.ObjectId
-  totalGames Int
-  wins       Int
-  losses     Int
+  totalGames Int    @default(0)
+  wins       Int    @default(0)
+  losses     Int    @default(0)
 }
