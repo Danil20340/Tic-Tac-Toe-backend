@@ -65,7 +65,7 @@ const PlayerController = {
                 }
             });
 
-            const { password, login, ...playerWithoutPassword } = newPlayer;
+            const { password: _, login: __, ...playerWithoutPassword } = newPlayer;
             res.json(playerWithoutPassword);
 
         } catch (error) {
@@ -91,7 +91,7 @@ const PlayerController = {
 
             // Проверка существования игрока
             const existingPlayer = await prisma.player.findUnique({
-                where: { id: parseInt(id) }
+                where: { id: id }
             });
 
             if (!existingPlayer) {
@@ -110,7 +110,7 @@ const PlayerController = {
                 const loginExists = await prisma.player.findFirst({
                     where: {
                         login,
-                        id: { not: parseInt(id) } // Исключаем текущего игрока
+                        id: { not: id } // Исключаем текущего игрока
                     }
                 });
 
@@ -126,12 +126,12 @@ const PlayerController = {
 
             // Обновление игрока
             const updatedPlayer = await prisma.player.update({
-                where: { id: parseInt(id) },
+                where: { id: id },
                 data: updateData
             });
 
             // Удаляем пароль из ответа
-            const { password, login, ...playerWithoutPassword } = updatedPlayer;
+            const { password: _, login: __, ...playerWithoutPassword } = updatedPlayer;
 
             res.json({
                 message: 'Игрок успешно обновлен',
@@ -181,39 +181,43 @@ const PlayerController = {
         }
     },
     changePlayerStatus: async (req, res) => {
-        const { id } = req.params;
-        const { status } = req.body;
+        const { id } = req.params; // ID игрока
 
         try {
             // Проверка прав администратора
             const admin = await prisma.player.findUnique({
-                where: { id: req.player.id }
+                where: { id: req.player.id } 
             });
 
             if (!admin || !admin.isAdmin) {
                 return res.status(403).json({ error: 'Доступ запрещен. Требуются права администратора' });
             }
+
             // Проверка существования игрока
             const existingPlayer = await prisma.player.findUnique({
-                where: { id: parseInt(id) }
+                where: { id }, 
             });
 
             if (!existingPlayer) {
                 return res.status(404).json({ error: 'Игрок не найден' });
             }
+
+            // Переключение статуса
+            const newStatus = existingPlayer.status === 'ACTIVE' ? 'BLOCKED' : 'ACTIVE';
+
             const updatedPlayer = await prisma.player.update({
-                where: { id },
-                data: { status },
+                where: { id }, 
+                data: { status: newStatus },
                 select: { id: true, fullName: true, status: true }
             });
 
             res.json({
-                message: 'Статус игрока успешно обновлен',
+                message: `Статус игрока успешно переключен на ${newStatus}`,
                 player: updatedPlayer
             });
 
         } catch (error) {
-            console.error('Error in togglePlayerStatus:', error);
+            console.error('Error in changePlayerStatus:', error);
             res.status(500).json({ error: 'Internal server error' });
         }
     }

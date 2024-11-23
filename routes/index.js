@@ -5,7 +5,7 @@ const { PlayerController } = require('../controllers')
 
 router.post('/login', PlayerController.login)
 router.post('/register', authenticateToken, PlayerController.register)
-router.put('/players/:id', authenticateToken, PlayerController.updatePlayer)
+router.patch('/players/:id', authenticateToken, PlayerController.updatePlayer)
 router.get('/players', authenticateToken, PlayerController.getAllPlayers)
-router.put('/players/:id', authenticateToken, PlayerController.changePlayerStatus)
+router.patch('/change/:id', authenticateToken, PlayerController.changePlayerStatus)
 module.exports = router;
