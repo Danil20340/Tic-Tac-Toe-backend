@@ -2,7 +2,7 @@ const { updateOnlinePlayers } = require('../utils/utils');
 const { onlinePlayers, playerStates, disconnectTimers } = require('../state');
 
 module.exports = (socket, io) => {
-    console.log("Подключение: socket.id =", socket.id, "IP =", socket.handshake.address);
+    // console.log("Подключение: socket.id =", socket.id, "IP =", socket.handshake.address);
 
     socket.on('register', ({ playerId, fullName }) => {
         // Логика регистрации
