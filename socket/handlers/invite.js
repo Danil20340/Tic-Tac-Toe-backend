@@ -5,13 +5,38 @@ const { updateOnlinePlayers } = require('../utils/utils');
 module.exports = (socket, io) => {
     // Обработка события приглашения
     socket.on('invite', ({ fromPlayerId, toPlayerId }) => {
-        console.log('Игрок', fromPlayerId, 'пригласил игрока', toPlayerId);
+
+        // Проверка: если игрок toPlayerId уже приглашен другим fromPlayerId
+        for (const [inviteKey] of pendingInvites.entries()) {
+            const [existingFromPlayerId, existingToPlayerId] = inviteKey.split('-');
+            if (existingToPlayerId === toPlayerId && existingFromPlayerId !== fromPlayerId) {
+                console.log(`Игрок ${toPlayerId} уже приглашен игроком ${existingFromPlayerId}. Уведомляем ${fromPlayerId}.`);
+
+                io.to(fromPlayerId).emit('rejected', {
+                    fromPlayerId: toPlayerId,
+                    message: {
+                        text: `Игрок ${toPlayerId} принимает другое приглашение.`,
+                        type: 'warning',
+                    },
+                });
+
+                return; // Выходим, так как игрок уже занят
+            }
+        }
+
+        // Проверка: если таймер уже существует для этой пары fromPlayerId-toPlayerId
+        if (pendingInvites.has(`${fromPlayerId}-${toPlayerId}`)) {
+            console.log(`Приглашение от ${fromPlayerId} к ${toPlayerId} уже ожидает ответа. Игнорируем.`);
+            return; // Игнорируем повторное приглашение
+        }
 
         // Проверяем, есть ли комната для toPlayerId (т.е. игрок онлайн)
         const isOnline = io.sockets.adapter.rooms.has(toPlayerId);
 
         if (isOnline) {
+
             // Игрок онлайн — отправляем приглашение
+            console.log('Игрок', fromPlayerId, 'пригласил игрока', toPlayerId);
             io.to(toPlayerId).emit('invite', { fromPlayerId });
 
             // Устанавливаем таймер на 10 секунд для проверки ответа
@@ -22,7 +47,7 @@ module.exports = (socket, io) => {
                 io.to(fromPlayerId).emit('rejected', {
                     fromPlayerId: toPlayerId,
                     message: {
-                        text: `Игрок ${toPlayerId} не ответил на приглашение.`,
+                        text: `Игрок AFK`,
                         type: 'warning',
                     },
                 });
