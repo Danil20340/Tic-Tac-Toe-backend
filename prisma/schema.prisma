@@ -19,15 +19,13 @@ model Player {
   login        String             @unique
   password     String
   isAdmin      Boolean            @default(false)
-  
+
   // Отношения
-  gamesAsPlayer1      Game[]        @relation("Player1Games")
-  gamesAsPlayer2      Game[]        @relation("Player2Games")
-  gamesWinner         Game[]        @relation("GameWinner")
-  chatMessages        ChatMessage[] @relation("PlayerMessages")
-  ratings             Rating[]
-  invitationAsPlayer1 Invitation[]  @relation("FromInvitations")
-  invitationAsPlayer2 Invitation[]  @relation("ToInvitations")
+  gamesAsPlayer1 Game[]        @relation("Player1Games")
+  gamesAsPlayer2 Game[]        @relation("Player2Games")
+  gamesWinner    Game[]        @relation("GameWinner")
+  chatMessages   ChatMessage[] @relation("PlayerMessages")
+  ratings        Rating[]
 }
 
 enum PlayerStatus {
@@ -42,30 +40,39 @@ enum AvailabilityStatus {
 
 // Индекс для игр игрока
 model Game {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  player1       Player   @relation("Player1Games", fields: [player1Id], references: [id])
-  player1Id     String   @db.ObjectId
-  player2       Player   @relation("Player2Games", fields: [player2Id], references: [id])
-  player2Id     String   @db.ObjectId
-  winner        Player?  @relation("GameWinner", fields: [winnerId], references: [id])
-  winnerId      String?  @db.ObjectId
-  lastMoveTime  DateTime @default(now())
-  // Символы игроков (X или O)
-  player1Symbol Symbol
-  player2Symbol Symbol
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  player1      Player   @relation("Player1Games", fields: [player1Id], references: [id])
+  player1Id    String   @db.ObjectId
+  player2      Player   @relation("Player2Games", fields: [player2Id], references: [id])
+  player2Id    String   @db.ObjectId
+  winner       Player?  @relation("GameWinner", fields: [winnerId], references: [id])
+  winnerId     String?  @db.ObjectId
+  
+  //Время последнего хода
+  lastMoveTime DateTime @default(now())
+
+  // Символы игроков
+  player1Symbol Symbol @default(X) // Значение по умолчанию: крестик (X)
+  player2Symbol Symbol @default(O) // Значение по умолчанию: нолик (O)
 
   // Статус игры
-  status GameStatus
+  status GameStatus @default(ONGOING) // По умолчанию статус "в процессе"
 
-  // Игровое поле (хранится как JSON)
-  board        Json
-  nowMove      Symbol
+  // Игровое поле
+  board Json @default("[null,null,null,null,null,null,null,null,null]") // Пустое поле 3x3
+
+  // Очерёдность хода
+  nowMove Symbol @default(X) // По умолчанию первый ход за игроком с крестиком (X)
+
   // Чат-сообщения
   chatMessages ChatMessage[]
+
+  // Временные отметки
   createTime   DateTime      @default(now())
   endTime      DateTime?
 
-  @@index([player1Id, player2Id, status])
+  // Индекс
+  @@unique([player1Id, player2Id, status]) // Уникальная пара игроков и статус
 }
 
 enum GameStatus {
@@ -99,22 +106,5 @@ model Rating {
   totalGames Int    @default(0)
   wins       Int    @default(0)
   losses     Int    @default(0)
-  draw     Int    @default(0)
-}
-
-model Invitation {
-  id           String       @id @default(auto()) @map("_id") @db.ObjectId
-  fromPlayer   Player       @relation("FromInvitations", fields: [fromPlayerId], references: [id])
-  fromPlayerId String       @db.ObjectId
-  toPlayer     Player       @relation("ToInvitations", fields: [toPlayerId], references: [id])
-  toPlayerId   String       @db.ObjectId
-  status       InviteStatus @default(PENDING)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-}
-
-enum InviteStatus {
-  PENDING
-  ACCEPTED
-  DECLINED
+  draw       Int    @default(0)
 }
