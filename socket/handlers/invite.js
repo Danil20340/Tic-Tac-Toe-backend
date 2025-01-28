@@ -1,6 +1,7 @@
-const { pendingInvites, onlinePlayers, playerStates } = require('../state');
-const { PlayerStatuses, TIMEOUTS } = require('../constants');
+const { pendingInvites, onlinePlayers } = require('../state');
+const { TIMEOUTS } = require('../constants');
 const { updateOnlinePlayers } = require('../utils/utils');
+const { prisma } = require("../../prisma/prisma-client"); // Модель игрока для обновления в БД
 
 module.exports = (socket, io) => {
     // Обработка события приглашения
@@ -15,7 +16,7 @@ module.exports = (socket, io) => {
                 io.to(fromPlayerId).emit('rejected', {
                     fromPlayerId: toPlayerId,
                     message: {
-                        text: `Игрок ${toPlayerId} принимает другое приглашение.`,
+                        text: `Игрок fullName принимает другое приглашение.`,
                         type: 'warning',
                     },
                 });
@@ -72,44 +73,88 @@ module.exports = (socket, io) => {
             io.to(fromPlayerId).emit('rejected', {
                 fromPlayerId: toPlayerId,
                 message: {
-                    text: `Игрок ${toPlayerId} не в сети.`,
+                    text: `Игрок fullName не в сети.`,
                     type: 'warning',
                 },
             });
         }
     });
 
-    // Обработка принятия приглашения
-    socket.on('accept', ({ fromPlayerId, toPlayerId }) => {
+    // Помощник для обновления игрока в onlinePlayers
+    function updatePlayerStatusInMemory(playerId, availability) {
+        if (onlinePlayers.has(playerId)) {
+            const player = onlinePlayers.get(playerId);
+            onlinePlayers.set(playerId, {
+                ...player,
+                availability,
+            });
+        }
+    }
+
+    socket.on('accept', async ({ fromPlayerId, toPlayerId }) => {
         console.log(`Игрок ${toPlayerId} принял приглашение от игрока ${fromPlayerId}.`);
 
         // Удаляем таймер, если приглашение принято
-        const timeoutId = pendingInvites.get(`${toPlayerId}-${fromPlayerId}`);
+        const inviteKey = `${toPlayerId}-${fromPlayerId}`;
+        const timeoutId = pendingInvites.get(inviteKey);
         if (timeoutId) {
             clearTimeout(timeoutId);
-            pendingInvites.delete(`${toPlayerId}-${fromPlayerId}`);
-        }
-        // Обновляем статус игроков в onlinePlayers
-        if (onlinePlayers.has(fromPlayerId)) {
-            const fromPlayer = onlinePlayers.get(fromPlayerId);
-            onlinePlayers.set(fromPlayerId, {
-                ...fromPlayer,
-                availability: PlayerStatuses.IN_GAME,
-            });
-            playerStates.set(fromPlayerId, "IN_GAME");
+            pendingInvites.delete(inviteKey);
         }
 
-        if (onlinePlayers.has(toPlayerId)) {
-            const toPlayer = onlinePlayers.get(toPlayerId);
-            onlinePlayers.set(toPlayerId, {
-                ...toPlayer,
-                availability: PlayerStatuses.IN_GAME,
+        try {
+            // Проверяем статус игроков в базе данных
+            const players = await prisma.player.findMany({
+                where: { id: { in: [fromPlayerId, toPlayerId] } },
+                select: { id: true, availability: true },
             });
-            playerStates.set(toPlayerId, "IN_GAME");
-        }
 
-        // Уведомляем всех клиентов о новом списке игроков
-        updateOnlinePlayers(io);
+            if (players.some(player => player.availability === "IN_GAME")) {
+                console.error(`Один из игроков уже находится в игре. Запрос отклонён.`);
+                return io.to(fromPlayerId).emit('rejected', {
+                    fromPlayerId,
+                    message: {
+                        text: `Игрок fullName уже находится в игре.`,
+                        type: 'warning',
+                    },
+                });
+            }
+
+            // Используем транзакцию для обновления статусов игроков
+            await prisma.$transaction([
+                prisma.player.update({
+                    where: { id: fromPlayerId },
+                    data: { availability: "IN_GAME" },
+                }),
+                prisma.player.update({
+                    where: { id: toPlayerId },
+                    data: { availability: "IN_GAME" },
+                }),
+            ]);
+
+            console.log(`Статусы игроков ${fromPlayerId} и ${toPlayerId} обновлены на "IN_GAME".`);
+
+            // Обновляем статусы в памяти
+            updatePlayerStatusInMemory(fromPlayerId, "IN_GAME");
+            updatePlayerStatusInMemory(toPlayerId, "IN_GAME");
+
+            // Создаём игру
+            const newGame = await prisma.game.create({
+                data: {
+                    player1Id: fromPlayerId,
+                    player2Id: toPlayerId,
+                },
+            });
+            console.log("Игра успешно создана:", newGame);
+            //Уведомляем игроков о старте игры
+            io.to(fromPlayerId).emit('gameStart');
+            io.to(toPlayerId).emit('gameStart');
+            // Уведомляем клиентов о новом списке игроков
+            updateOnlinePlayers(io);
+        } catch (error) {
+            console.error(`Ошибка при обработке принятия приглашения:`, error);
+            socket.emit('error', { message: "Произошла ошибка при принятии приглашения." });
+        }
     });
 
     // Обработка отклонения приглашения
