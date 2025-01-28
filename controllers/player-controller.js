@@ -286,6 +286,7 @@ const PlayerController = {
                     id: true,
                     fullName: true,
                     age: true,
+                    availability: true,
                     gender: true,
                     isAdmin: true
                 }
