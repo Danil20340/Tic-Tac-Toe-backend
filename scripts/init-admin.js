@@ -18,7 +18,6 @@ async function main() {
             isAdmin: true,
             ratings: {
                 create: {
-                    totalGames: 0,
                     wins: 0,
                     losses: 0
                 }

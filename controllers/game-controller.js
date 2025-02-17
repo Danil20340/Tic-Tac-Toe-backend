@@ -17,29 +17,30 @@ const GameController = {
                             fullName: true,
                         },
                     },
-                    totalGames: true,
                     wins: true,
                     losses: true,
                     draw: true,
                 },
             });
-
-            // Добавление расчёта процента побед
+    
+            // Добавление расчёта процента побед и вычисление totalGames динамически
             const result = ratings.map((rating) => {
-                const winPercentage = rating.totalGames > 0
-                    ? ((rating.wins / rating.totalGames) * 100).toFixed(2)
+                const totalGames = rating.wins + rating.losses + rating.draw;
+                const winPercentage = totalGames > 0
+                    ? ((rating.wins / totalGames) * 100).toFixed(2)
                     : 0;
+                
                 return {
                     id: rating.id,
                     playerName: rating.player.fullName,
-                    totalGames: rating.totalGames,
+                    totalGames,
                     wins: rating.wins,
                     losses: rating.losses,
                     draw: rating.draw,
                     winPercentage: parseFloat(winPercentage), // Преобразуем в число с фиксированной точностью
                 };
             });
-
+    
             res.json(result);
         } catch (error) {
             console.error('Error in getPlayerRatings:', error);
@@ -48,11 +49,11 @@ const GameController = {
                 details: process.env.NODE_ENV === 'development' ? error.message : undefined,
             });
         }
-    },
+    },    
     getCurrentGame: async (req, res) => {
         try {
             const { id } = req.params; // Получаем ID игрока из запроса
-
+    
             const game = await prisma.game.findFirst({
                 where: {
                     AND: [
@@ -77,28 +78,29 @@ const GameController = {
                     player1: {
                         select: {
                             fullName: true,
-                            ratings: { select: { wins: true, totalGames: true } }
+                            ratings: { select: { wins: true, losses: true, draw: true } }
                         }
                     },
                     player2: {
                         select: {
                             fullName: true,
-                            ratings: { select: { wins: true, totalGames: true } }
+                            ratings: { select: { wins: true, losses: true, draw: true } }
                         }
                     }
                 }
             });
-
+    
             if (!game) {
                 return res.status(404).json({ error: 'Нет активной игры для этого игрока' });
             }
-
+    
             // Функция расчета процента побед
             const calculateWinRate = (rating) => {
-                if (!rating || rating.totalGames === 0) return 0;
-                return Math.round((rating.wins / rating.totalGames) * 100);
+                if (!rating) return 0;
+                const totalGames = rating.wins + rating.losses + rating.draw;
+                return totalGames > 0 ? Math.round((rating.wins / totalGames) * 100) : 0;
             };
-
+    
             // Определяем символ текущего игрока
             const playerSymbol = game.player1Id === id ? game.player1Symbol : game.player2Symbol;
             return res.status(200).json({
@@ -116,7 +118,7 @@ const GameController = {
                     winRate: calculateWinRate(game.player2.ratings[0])
                 }
             });
-
+    
         } catch (error) {
             console.error('Ошибка в getCurrentGame:', error);
             res.status(500).json({
@@ -124,7 +126,7 @@ const GameController = {
                 details: process.env.NODE_ENV === 'development' ? error.message : undefined
             });
         }
-    },
+    },    
     getGameMessages: async (req, res) => {
         try {
             const { id } = req.params;

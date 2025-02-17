@@ -37,7 +37,6 @@ async function main() {
                     player: {
                         connect: { login: `player${index + 1}` }, // Связываем рейтинг с игроком по логину
                     },
-                    totalGames: 0,
                     wins: 0,
                     losses: 0,
                     draw: 0,

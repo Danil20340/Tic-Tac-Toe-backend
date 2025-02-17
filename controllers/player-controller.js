@@ -70,7 +70,6 @@ const PlayerController = {
                         player: {
                             connect: { login }, // Связываем рейтинг с игроком по уникальному login
                         },
-                        totalGames: 0,
                         wins: 0,
                         losses: 0,
                         draw: 0,

@@ -103,7 +103,6 @@ model Rating {
   id         String @id @default(auto()) @map("_id") @db.ObjectId
   player     Player @relation(fields: [playerId], references: [id])
   playerId   String @db.ObjectId
-  totalGames Int    @default(0)
   wins       Int    @default(0)
   losses     Int    @default(0)
   draw       Int    @default(0)
