@@ -1,6 +1,6 @@
 const { Server } = require('socket.io');
 const handlers = require('./handlers/index');
-
+require('./utils/saveChatMessages');
 let io;
 
 module.exports = {
