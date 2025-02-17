@@ -6,6 +6,7 @@
     "start": "node ./bin/www",
     "dev": "nodemon ./bin/www",
     "init-admin": "node scripts/init-admin.js",
+    "init-update": "node scripts/updateAvailability",
     "create-users": "node scripts/create-users.js"
   },
   "dependencies": {
