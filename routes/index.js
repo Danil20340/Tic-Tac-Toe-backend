@@ -13,5 +13,7 @@ router.get('/player/:id', authenticateToken, PlayerController.getPlayerById)
 router.get('/current', authenticateToken, PlayerController.getCurrentPlayer)
 
 router.get('/rating', authenticateToken, GameController.getPlayerRatings)
+router.get('/game/:id', authenticateToken, GameController.getCurrentGame)
+router.get('/messages/:id', authenticateToken, GameController.getGameMessages)
 
 module.exports = router;
