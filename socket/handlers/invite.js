@@ -1,7 +1,7 @@
-const { pendingInvites, onlinePlayers } = require('../state');
+const { pendingInvites } = require('../state');
 const { TIMEOUTS } = require('../constants');
-const { updateOnlinePlayers } = require('../utils/utils');
-const { prisma } = require("../../prisma/prisma-client"); // Модель игрока для обновления в БД
+const { updateOnlinePlayers, updatePlayerStatusInMemory, updateMoveTimer } = require('../utils/utils');
+const { prisma } = require("../../prisma/prisma-client"); 
 
 module.exports = (socket, io) => {
     // Обработка события приглашения
@@ -11,7 +11,7 @@ module.exports = (socket, io) => {
         for (const [inviteKey] of pendingInvites.entries()) {
             const [existingFromPlayerId, existingToPlayerId] = inviteKey.split('-');
             if (existingToPlayerId === toPlayerId && existingFromPlayerId !== fromPlayerId) {
-                console.log(`Игрок ${toPlayerId} уже приглашен игроком ${existingFromPlayerId}. Уведомляем ${fromPlayerId}.`);
+                // console.log(`Игрок ${toPlayerId} уже приглашен игроком ${existingFromPlayerId}. Уведомляем ${fromPlayerId}.`);
 
                 io.to(fromPlayerId).emit('rejected', {
                     fromPlayerId: toPlayerId,
@@ -27,7 +27,6 @@ module.exports = (socket, io) => {
 
         // Проверка: если таймер уже существует для этой пары fromPlayerId-toPlayerId
         if (pendingInvites.has(`${fromPlayerId}-${toPlayerId}`)) {
-            console.log(`Приглашение от ${fromPlayerId} к ${toPlayerId} уже ожидает ответа. Игнорируем.`);
             return; // Игнорируем повторное приглашение
         }
 
@@ -37,13 +36,11 @@ module.exports = (socket, io) => {
         if (isOnline) {
 
             // Игрок онлайн — отправляем приглашение
-            console.log('Игрок', fromPlayerId, 'пригласил игрока', toPlayerId);
+            // console.log('Игрок', fromPlayerId, 'пригласил игрока', toPlayerId);
             io.to(toPlayerId).emit('invite', { fromPlayerId });
 
             // Устанавливаем таймер на 10 секунд для проверки ответа
             const timeoutId = setTimeout(() => {
-                console.log(`Игрок ${toPlayerId} не ответил. Таймер истёк.`);
-
                 // Уведомляем обе стороны о превышении времени ожидания
                 io.to(fromPlayerId).emit('rejected', {
                     fromPlayerId: toPlayerId,
@@ -69,7 +66,6 @@ module.exports = (socket, io) => {
             pendingInvites.set(`${fromPlayerId}-${toPlayerId}`, timeoutId);
         } else {
             // Игрок оффлайн — уведомляем отправителя
-            console.log('Игрок', toPlayerId, 'не в сети. Уведомляем отправителя.');
             io.to(fromPlayerId).emit('rejected', {
                 fromPlayerId: toPlayerId,
                 message: {
@@ -80,20 +76,7 @@ module.exports = (socket, io) => {
         }
     });
 
-    // Помощник для обновления игрока в onlinePlayers
-    function updatePlayerStatusInMemory(playerId, availability) {
-        if (onlinePlayers.has(playerId)) {
-            const player = onlinePlayers.get(playerId);
-            onlinePlayers.set(playerId, {
-                ...player,
-                availability,
-            });
-        }
-    }
-
     socket.on('accept', async ({ fromPlayerId, toPlayerId }) => {
-        console.log(`Игрок ${toPlayerId} принял приглашение от игрока ${fromPlayerId}.`);
-
         // Удаляем таймер, если приглашение принято
         const inviteKey = `${toPlayerId}-${fromPlayerId}`;
         const timeoutId = pendingInvites.get(inviteKey);
@@ -110,7 +93,6 @@ module.exports = (socket, io) => {
             });
 
             if (players.some(player => player.availability === "IN_GAME")) {
-                console.error(`Один из игроков уже находится в игре. Запрос отклонён.`);
                 return io.to(fromPlayerId).emit('rejected', {
                     fromPlayerId,
                     message: {
@@ -132,8 +114,6 @@ module.exports = (socket, io) => {
                 }),
             ]);
 
-            console.log(`Статусы игроков ${fromPlayerId} и ${toPlayerId} обновлены на "IN_GAME".`);
-
             // Обновляем статусы в памяти
             updatePlayerStatusInMemory(fromPlayerId, "IN_GAME");
             updatePlayerStatusInMemory(toPlayerId, "IN_GAME");
@@ -145,10 +125,11 @@ module.exports = (socket, io) => {
                     player2Id: toPlayerId,
                 },
             });
-            console.log("Игра успешно создана:", newGame);
             //Уведомляем игроков о старте игры
             io.to(fromPlayerId).emit('gameStart');
             io.to(toPlayerId).emit('gameStart');
+            //Создаем таймер хода
+            updateMoveTimer(io, newGame.id);
             // Уведомляем клиентов о новом списке игроков
             updateOnlinePlayers(io);
         } catch (error) {
@@ -156,11 +137,8 @@ module.exports = (socket, io) => {
             socket.emit('error', { message: "Произошла ошибка при принятии приглашения." });
         }
     });
-
     // Обработка отклонения приглашения
     socket.on('decline', ({ fromPlayerId, toPlayerId }) => {
-        console.log(`Игрок ${toPlayerId} отклонил приглашение от игрока ${fromPlayerId}.`);
-
         // Отменяем таймер, если приглашение отклонено    
         const timeoutId = pendingInvites.get(`${toPlayerId}-${fromPlayerId}`);
         if (timeoutId) {
