@@ -31,7 +31,7 @@ const updateMoveTimer = async (io, gameId) => {
 
             if (!game) return;
 
-            // Определяем проигравшего
+            // Определяем проигравшего и победителя
             const loserId = game.nowMove === game.player1Symbol ? game.player1Id : game.player2Id;
             const winnerId = loserId === game.player1Id ? game.player2Id : game.player1Id;
 
@@ -44,12 +44,27 @@ const updateMoveTimer = async (io, gameId) => {
                     endTime: new Date()
                 }
             });
+
             io.to(gameId).emit('moveMade', { ...updatedGame });
-            //Обновляем статусы доступности игроков
+
+            // Обновляем рейтинг игроков (победителю +1 победа, проигравшему +1 поражение)
+            await prisma.$transaction([
+                prisma.rating.updateMany({
+                    where: { playerId: winnerId },
+                    data: { wins: { increment: 1 } }
+                }),
+                prisma.rating.updateMany({
+                    where: { playerId: loserId },
+                    data: { losses: { increment: 1 } }
+                })
+            ]);
+
+            // Обновляем статусы доступности игроков
             await prisma.player.updateMany({
                 where: { id: { in: [game.player1Id, game.player2Id] } },
                 data: { availability: 'AVAILABLE' }
             });
+
             updatePlayerStatusInMemory(game.player1Id, 'AVAILABLE');
             updatePlayerStatusInMemory(game.player2Id, 'AVAILABLE');
             io.socketsLeave(gameId);
@@ -61,4 +76,5 @@ const updateMoveTimer = async (io, gameId) => {
 
     moveTimers.set(gameId, { alertTimeout, mainTimeout });
 };
+
 module.exports = { updateOnlinePlayers, updatePlayerStatusInMemory, updateMoveTimer };
