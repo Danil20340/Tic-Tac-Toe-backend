@@ -154,7 +154,53 @@ const GameController = {
             console.error("Ошибка получения сообщений чата:", error);
             res.status(500).json({ error: "Ошибка сервера" });
         }
-    }
+    },
+    getGamesTable: async (req, res) => {
+        try {
+            const games = await prisma.game.findMany({
+                where: {
+                    status: { in: ["FINISHED", "DRAW"] } // Получаем только завершенные игры
+                },
+                select: {
+                    id: true,
+                    createTime: true,
+                    endTime: true,
+                    player1: { select: { fullName: true } },
+                    player2: { select: { fullName: true } },
+                    winner: { select: { fullName: true } },
+                    status: true
+                },
+                orderBy: {
+                    endTime: 'desc' // Сортируем по дате окончания (от новых к старым)
+                }
+            });
+    
+            // Форматируем ответ
+            const result = games.map((game) => {
+                const duration = game.endTime
+                    ? Math.round((new Date(game.endTime) - new Date(game.createTime)) / 1000) // Длительность в секундах
+                    : null;
+                
+                return {
+                    id: game.id,
+                    player1: game.player1.fullName,
+                    player2: game.player2.fullName,
+                    winner: game.winner ? game.winner.fullName : "Ничья",
+                    status: game.status, // FINISHED или DRAW
+                    createTime: game.createTime,
+                    duration: duration ? `${Math.floor(duration / 60)} мин ${duration % 60} сек` : "Неизвестно"
+                };
+            });
+    
+            res.json(result);
+        } catch (error) {
+            console.error('Ошибка в getGamesTable:', error);
+            res.status(500).json({
+                error: 'Внутренняя ошибка сервера',
+                details: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
+        }
+    }    
 };
 
 module.exports = GameController;
