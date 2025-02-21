@@ -60,7 +60,8 @@ module.exports = (socket, io) => {
                     board,
                     nowMove: expectedSymbol === 'X' ? 'O' : 'X',
                     status: newStatus,
-                    winnerId
+                    winnerId,
+                    endTime: newStatus !== 'ONGOING' ? new Date() : null
                 }
             });
 

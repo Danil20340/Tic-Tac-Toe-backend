@@ -8,7 +8,7 @@ async function main() {
 
     const admin = await prisma.player.create({
         data: {
-            fullName: 'Admin User',
+            fullName: 'Admin Admin Admin',
             age: 30,
             gender: 'Male',
             status: 'ACTIVE',
