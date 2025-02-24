@@ -31,10 +31,20 @@ const PlayerController = {
     },
     register: async (req, res) => {
         const { login, password, fullname, age, gender } = req.body;
-        if (!login || !password || !fullname || !age || !gender) {
+        if (
+            !login?.trim() ||
+            !password?.trim() ||
+            !fullname?.trim() ||
+            !age?.toString().trim() ||
+            !gender?.trim()
+        ) {
             return res.status(400).json({ error: 'Не все поля заполнены' });
         }
-
+        // Проверка что fullName состоит ровно из трех слов
+        const nameParts = fullname.trim().split(/\s+/);
+        if (nameParts.length !== 3) {
+            return res.status(400).json({ error: 'ФИО должно состоять ровно из трех слов' });
+        }
         try {
             const existingUser = await prisma.player.findUnique({
                 where: { login },
@@ -90,15 +100,13 @@ const PlayerController = {
         }
     },
     updatePlayer: async (req, res) => {
-        const { id } = req.params; // ID игрока для обновления
-        const { login, password, fullname, age, gender } = req.body;
 
+        const { id, login, password, fullname, age, gender } = req.body;
         try {
             // Проверка прав администратора
             const admin = await prisma.player.findUnique({
                 where: { id: req.player.id }
             });
-
             if (!admin || !admin.isAdmin) {
                 return res.status(403).json({ error: 'Доступ запрещен. Требуются права администратора' });
             }
@@ -107,7 +115,6 @@ const PlayerController = {
             const existingPlayer = await prisma.player.findUnique({
                 where: { id: id }
             });
-
             if (!existingPlayer) {
                 return res.status(404).json({ error: 'Игрок не найден' });
             }
@@ -116,10 +123,18 @@ const PlayerController = {
             const updateData = {};
 
             // Добавляем только предоставленные поля
-            if (fullname) updateData.fullName = fullname;
-            if (age) updateData.age = parseInt(age);
-            if (gender) updateData.gender = gender;
-            if (login) {
+            if (fullname && !(fullname.trim === '')) {
+                // Проверка что fullName состоит ровно из трех слов
+                const nameParts = fullname.trim().split(/\s+/);
+                if (nameParts.length !== 3) {
+                    return res.status(400).json({ error: 'ФИО должно состоять ровно из трех слов' });
+                }
+                updateData.fullName = fullname
+            };
+
+            if (age && !(age.trim === '')) updateData.age = parseInt(age);
+            if (gender && !(gender.trim === '')) updateData.gender = gender;
+            if (login && !(login.trim === '')) {
                 // Проверка уникальности логина
                 const loginExists = await prisma.player.findFirst({
                     where: {
@@ -133,7 +148,7 @@ const PlayerController = {
                 }
                 updateData.login = login;
             }
-            if (password) {
+            if (password && !(password.trim === '')) {
                 const hashedPassword = await bcrypt.hash(password, 10);
                 updateData.password = hashedPassword;
             }
@@ -187,7 +202,7 @@ const PlayerController = {
                     updatedAt: true
                 }
             });
-            
+
             res.json(players);
 
         } catch (error) {
@@ -241,15 +256,6 @@ const PlayerController = {
     },
     getPlayerById: async (req, res) => {
         try {
-            // Проверка прав администратора
-            // const admin = await prisma.player.findUnique({
-            //     where: { id: req.player.id }
-            // });
-
-            // if (!admin || !admin.isAdmin) {
-            //     return res.status(403).json({ error: 'Доступ запрещен. Требуются права администратора' });
-            // }
-
             // Получение данных игрока по переданному id
             const { id } = req.params; // id игрока передается в параметрах запроса
             const player = await prisma.player.findUnique({
@@ -286,6 +292,7 @@ const PlayerController = {
                     fullName: true,
                     age: true,
                     availability: true,
+                    status: true,
                     gender: true,
                     isAdmin: true
                 }
@@ -294,7 +301,6 @@ const PlayerController = {
             if (!player) {
                 return res.status(404).json({ error: 'Игрок не найден' });
             }
-
             return res.status(200).json(player);
 
         }

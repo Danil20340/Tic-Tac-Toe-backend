@@ -6,7 +6,7 @@ const { GameController } = require('../controllers')
 
 router.post('/login', PlayerController.login)
 router.post('/register', authenticateToken, PlayerController.register)
-router.patch('/players/:id', authenticateToken, PlayerController.updatePlayer)
+router.patch('/players', authenticateToken, PlayerController.updatePlayer)
 router.get('/players', authenticateToken, PlayerController.getAllPlayers)
 router.patch('/change/:id', authenticateToken, PlayerController.changePlayerStatus)
 router.get('/player/:id', authenticateToken, PlayerController.getPlayerById)
