@@ -12,12 +12,5 @@ module.exports = {
         });
 
         return io;
-    },
-
-    getIO: () => {
-        if (!io) {
-            throw new Error('Socket.io не инициализирован!');
-        }
-        return io;
-    },
+    }
 };
