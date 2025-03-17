@@ -1,0 +1,23 @@
+services:
+  express-app:
+    build: .
+    expose:
+      - "3000"
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+
+  db:
+    image: prismagraphql/mongo-single-replica:5.0.3
+    expose:
+      - "27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: monty
+      MONGO_INITDB_ROOT_PASSWORD: pass
+  nginx:
+    build: ../Tic-Tac-Toe-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - express-app
